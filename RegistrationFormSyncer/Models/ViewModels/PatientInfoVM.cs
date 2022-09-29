@@ -30,6 +30,7 @@ namespace RegistrationFormSyncer.Models.ViewModels
         public string Insurance { get; set; }
         public string SchemeId { get; set; }
         public string Scheme { get; set; }
+        public string County { get; set; }
         public string Town { get; set; }
         public string Residence { get; set; }
         public string Occupation { get; set; }

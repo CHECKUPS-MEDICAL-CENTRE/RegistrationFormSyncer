@@ -15,5 +15,6 @@ namespace RegistrationFormSyncer.Services
         Task SavePaypalTransaction(object[] args);
         Task UpdateFromQuoteToInvoice(object[] args);
        Task UpdatePatientCycleMapping(object[] args);
+
     }
 }

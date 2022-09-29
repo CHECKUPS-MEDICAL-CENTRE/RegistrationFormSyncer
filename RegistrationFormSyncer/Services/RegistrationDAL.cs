@@ -13,7 +13,7 @@ namespace RegistrationFormSyncer.Services
     {
         public async Task<IEnumerable<PatientInfoVM>> GetUnsyncedPatients()
         {
-            string query = @"select * from onlinepatients where IsSynced=0 and IsPayementRecorded=1";
+            string query = @"select * from onlinepatients where IsSynced=0";
             return await FindOptimisedAsync<PatientInfoVM>(query);
 
         }
@@ -75,6 +75,13 @@ where clp.IsWebVisible=1 and clp.Scheme_ID='00000000-0000-0000-0000-000000000000
             string query = @"update onlinepatients set cycle_id={1} where OnlinePatientId={0}";
             await UpdateAsync(query, args);
         }
+        public async Task UpdateOrderStatus(object[] args)
+        {
+            string query = @"update visit_cycle set status={1} where cycle_id=(select cycle_id from 
+invoices where invoice_number={0})";
+            await UpdateAsync(query, args);
+        }
+
         public RegistrationDAL(CheckupsDbContext context) : base(context)
         {
 

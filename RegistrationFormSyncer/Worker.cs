@@ -23,6 +23,8 @@ namespace RegistrationFormSyncer
         private readonly ILogger<Worker> _logger;
         private readonly IServiceScopeFactory _serviceProvider;
         public Guid Visit_cycle_id;
+        public int visitType=14;
+        public string InvoiceNumber = "";
 
         public Worker(ILogger<Worker> logger, IServiceScopeFactory serviceProvider)
         {
@@ -46,10 +48,10 @@ namespace RegistrationFormSyncer
                     //var payable_amount=string.IsNullOrWhiteSpace(patient.SchemeId) ? await _setupService.GetPayableCashAmount(new object[] { patient.TypeOfTest }) : await _setupService.GetPayableInsuranceAmount(new object[] { Guid.Parse(patient.InsuranceId),patient.TypeOfTest });
                     //check currency and convert
                     //decimal convertedAmount;
-                    if (patient.Currency == "USD")
-                    {
-                        patient.Amount = patient.Amount * 110;
-                    }
+                    //if (patient.Currency == "USD")
+                    //{
+                    //    patient.Amount = patient.Amount * 110;
+                    //}
                     
                         
                     ReturnType returnf = new ReturnType();
@@ -80,7 +82,7 @@ namespace RegistrationFormSyncer
                     ServerPatient.other_id = string.IsNullOrWhiteSpace(patient.PassportId) ? string.Empty : patient.PassportId;
                     ServerPatient.occupation = string.IsNullOrWhiteSpace(patient.Occupation) ? string.Empty : patient.Occupation;
                     ServerPatient.citytown = string.IsNullOrWhiteSpace(patient.Town) ? string.Empty : patient.Town;
-                    ServerPatient.county = string.IsNullOrWhiteSpace(patient.Town) ? string.Empty : patient.Town;
+                    ServerPatient.county = string.IsNullOrWhiteSpace(patient.County) ? string.Empty : patient.County;
                     ServerPatient.referral_type = "corporate";
                     ServerPatient.referring_entity = airline;
                     ServerPatient.referral_location = string.Empty;
@@ -134,7 +136,25 @@ namespace RegistrationFormSyncer
                     ServerPatient.has_smartphone = string.Empty;
                     ServerPatient.active = 1;
                     ServerPatient.marital_status = string.Empty;
-                    ServerPatient.visit_type_id = patient.IsHomeCollection == 1 ? 11 : 14;
+                    // ServerPatient.visit_type_id = patient.IsHomeCollection == 1 ? 11 : 14;
+                    if (patient.CollectionLocation.Contains("Walk-in"))
+                    {
+                        visitType = 14;
+                    }
+                    else if (patient.CollectionLocation.ToUpper().Contains("ROBERT"))
+                    {
+                        visitType = 2;
+                    }
+                    else if (patient.CollectionLocation.ToUpper().Contains("CITIBANK"))
+                    {
+
+                        visitType = 2;
+                    }
+                    else
+                    {
+                        visitType = 11;
+                    }
+                    ServerPatient.visit_type_id = visitType;
                     ServerPatient.facility_id = 2;
                     tDataDisplayClass.patient_payment_account_id = Guid.Empty;
                     tDataDisplayClass.FacilityNumber = ServerPatient.patient_facility_number;
@@ -223,11 +243,31 @@ namespace RegistrationFormSyncer
                     await rd.InsertIntoDocumentsLog(new object[] { Visit_cycle_id, "consent_form" });
                     await rd.InsertIntoDocumentsLog(new object[] { Visit_cycle_id, "invoice" });
 
-                    await rd.SyncPatient(new object[] { patient.OnlinePatientId, Visit_cycle_id });
+                    await rd.SyncPatient(new object[] { patient.OnlinePatientId, Visit_cycle_id,InvoiceNumber });
+                    //if (patient.IsHomeCollection == 1)
+                    //{
+                    //    //send to dispatch app
+                    //    DispatchVM dispatch = new DispatchVM();
+                    //    dispatch.name = patient.FirstName +" "+ patient.OtherNames+" " + patient.Surname;
+                    //    dispatch.order_no = InvoiceNumber;
+                    //    dispatch.p_contact = patient.Telephone;
+                    //    dispatch.address = patient.Town;
+                    //    dispatch.note = "Covid Booking";
+                    //    dispatch.priority = 1;
+                    //    dispatch.time = patient.VisitDate.ToString("hh:mm");
+                    //    dispatch.date = patient.VisitDate.ToString("dd-MM-yyyy");
+                    //    dispatch.method = patient.PaymentMethod;
+
+                    //    var postDispatchData= new { name=dispatch.name,}
+                    //}
                     try
                     {
                         // create email message
                         EmailService emailService = new EmailService();
+//                        string body = @"Thank you for registering for choosing us to do your covid test. 
+//                            This service is currently unavailable as we are trying to improve our service
+//                            We can however link you with one of our patners to have your test. Kindly call 0111050290
+//";
                         string body = PopulateBody(patient.FirstName + " "+patient.OtherNames+ " "+patient.Surname, patient.IdNumber, patient.DOB.ToString("dd-MM-yyyy"), patient.CollectionLocation, patient.VisitDate.ToString("dd-MM-yyyy"),patient.Telephone,patient.TypeOfTestDescription,patient.PaymentMethod,patient.Amount,patient.CollectionSlot,patient.Currency);
                         emailService.SendWelcomeMessage(patient.Email,
                             "Covid 19 Test Registration",body
@@ -312,7 +352,7 @@ namespace RegistrationFormSyncer
 
             VisitCycleType ServerCycle = new VisitCycleType();
             ServerCycle.patient_id = tDataDisplayClassx.PatientID;
-            ServerCycle.visit_type = 14;
+            ServerCycle.visit_type = visitType;
             ServerCycle.sub_que_details_id = 0;
             ServerCycle.case_type = Guid.Parse("FBE18B15-B8F4-4F25-BA8E-428D4C32F7A8");
             ServerCycle.case_type_id = Guid.Parse("FBE18B15-B8F4-4F25-BA8E-428D4C32F7A8");
@@ -357,7 +397,7 @@ namespace RegistrationFormSyncer
             ServerCycle.discharged = false;
             ServerCycle.benefit_package_id = Guid.Empty;
             ServerCycle.active = 1;
-            ServerCycle.concierge = (!string.IsNullOrWhiteSpace(tDataDisplayClassx.SampleCollectionLocation) && tDataDisplayClassx.SampleCollectionLocation.ToLower().Contains("checkups")) ? 14 : 11;
+            ServerCycle.concierge = visitType;
             ServerCycle.internal_nurse_id = 0;
             ServerCycle.facility_id = 2;
             ServerCycle.payer_id = (tDataDisplayClassx.patient_payment_account_id == Guid.Empty) ? Guid.Empty : tDataDisplayClassx.patient_payment_account_id;
@@ -463,6 +503,7 @@ namespace RegistrationFormSyncer
                 tDeposit.running_balance = tDeposit.amount_paid - (tDeposit.total_charge + tDeposit.refund);
                 tDeposit.insurance_rebate = 0;
                 tDeposit.invoice_number = GenerateInvoice(tDataDisplayClassx.CycleID, tDataDisplayClassx.VisitDate);
+                InvoiceNumber = tDeposit.invoice_number;
                 tDeposit.waived = 0;
                 tDeposit.waiver_used = 0;
                 tDeposit.waiver_used_by = 0;
@@ -671,8 +712,7 @@ namespace RegistrationFormSyncer
         int SaveDepositTransaction(DataDisplayClass tDataDisplayClassx)
         {
             int code = 0;
-
-            DepositTransactionType tDepositTransaction = new DepositTransactionType();
+                        DepositTransactionType tDepositTransaction = new DepositTransactionType();
             tDepositTransaction.deposit_transaction_id = Guid.NewGuid();
             tDepositTransaction.deposit_id = tDataDisplayClassx.DepositID;
             tDepositTransaction.deposit_transaction_amount = tDataDisplayClassx.ChargeAmount;
